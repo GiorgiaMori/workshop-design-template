@@ -7,3 +7,6 @@ Describe the workshop-planning or content updates in this pull request.
 - [ ] Workshop design files updated as needed
 - [ ] Documentation under `docs/` updated as needed
 - [ ] Accessibility considerations reviewed
+- [ ] Learning outcomes are measurable
+- [ ] Runsheet timing is feasible
+- [ ] Delivery checklist completed for live events

@@ -3,11 +3,16 @@ description: Use this form to scope a workshop before developing content.
 title: "[Workshop design]: "
 labels: ["workshop-design", "scoping"]
 body:
+  - type: markdown
+    attributes:
+      value: |
+        Start with the learner problem first. Keep outcomes measurable and time-bounded.
+
   - type: input
     id: topic
     attributes:
       label: Workshop topic
-      description: What is the broad topic?
+      description: What topic does this workshop teach?
       placeholder: "Long-read genome assembly"
 
   - type: textarea
@@ -16,18 +21,54 @@ body:
       label: Real-world research problem
       description: What problem will participants be able to solve?
       placeholder: "I have Nanopore reads and want to produce and assess a draft genome assembly."
+    validations:
+      required: true
 
   - type: textarea
     id: audience
     attributes:
       label: Target audience
       description: Who is this workshop for? What can they already do?
+    validations:
+      required: true
+
+  - type: dropdown
+    id: audience-profile
+    attributes:
+      label: Participant profile
+      options:
+        - Wet-lab researchers
+        - Bioinformaticians
+        - Computational biologists
+        - Mixed audience
+    validations:
+      required: true
+
+  - type: dropdown
+    id: experience-level
+    attributes:
+      label: Experience level
+      options:
+        - Complete beginners
+        - Some experience
+        - Intermediate
+        - Advanced
+    validations:
+      required: true
+
+  - type: textarea
+    id: brain-dump
+    attributes:
+      label: Brain dump
+      description: List everything you think participants should learn before triage.
 
   - type: textarea
     id: outcomes
     attributes:
       label: Learning outcomes
-      description: Maximum 3 for a half-day, 4 for a full day. Start with “After this workshop, participants will be able to...”
+      description: Maximum 3 for a half-day, 4 for a full day. Start with "After this workshop, participants will be able to..."
+    validations:
+      required: true
 
   - type: textarea
     id: parking-lot
@@ -36,7 +77,23 @@ body:
       description: What is interesting but not essential for live delivery?
 
   - type: textarea
+    id: feasibility
+    attributes:
+      label: Reality check
+      description: Does this fit in available time? What will you cut if needed?
+
+  - type: textarea
     id: accessibility
     attributes:
       label: Accessibility considerations
       description: What barriers might participants experience?
+
+  - type: checkboxes
+    id: quality-checks
+    attributes:
+      label: Design quality checks
+      options:
+        - label: Outcomes use measurable verbs
+        - label: Each outcome has a matching activity
+        - label: Plan includes buffer time
+        - label: Setup complexity matches audience baseline

@@ -1,0 +1,29 @@
+name: Delivery readiness
+description: Final readiness check before workshop delivery.
+title: "[Delivery readiness]: "
+labels: ["delivery-readiness"]
+body:
+  - type: textarea
+    id: context
+    attributes:
+      label: Workshop context
+      description: Link runsheet, exercises, and setup materials.
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: readiness
+    attributes:
+      label: Readiness checks
+      options:
+        - label: Slides and demos tested
+        - label: Exercise solutions verified
+        - label: Accessibility accommodations confirmed
+        - label: Platform logistics confirmed
+        - label: Contingency plan documented
+
+  - type: textarea
+    id: risks
+    attributes:
+      label: Remaining risks
+      description: What could still fail and how will you respond?

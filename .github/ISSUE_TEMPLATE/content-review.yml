@@ -15,4 +15,15 @@ body:
     id: checklist
     attributes:
       label: Review checklist
-      description: Include clarity, technical accuracy, timing, and accessibility.
+      description: Review clarity, technical accuracy, timing realism, assessment evidence, and accessibility.
+
+  - type: checkboxes
+    id: dimensions
+    attributes:
+      label: Requested review dimensions
+      options:
+        - label: Learning outcomes are measurable
+        - label: Exercises map to outcomes
+        - label: Runsheet fits available time
+        - label: Accessibility mitigations are concrete
+        - label: Delivery checklist is complete
