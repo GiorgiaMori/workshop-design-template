@@ -18,7 +18,22 @@ The template now follows a guided BioCommons Workshop Designer pathway that star
 3. Follow the 12-step flow in `docs/index.md`.
 4. Fill in the planning files under `workshop-design/`.
 5. Open a **Content review** issue before delivery.
-4. Enable GitHub Pages from the repository settings using the `/docs` folder.
+6. Enable GitHub Pages from the repository settings using the `/docs` folder.
+
+## BioCommons Workshop Designer
+
+This repository is designed to help trainers move from a learner problem to a delivery-ready workshop without losing important design decisions along the way.
+
+The workflow emphasizes:
+
+- learner-first scoping
+- audience and prerequisite checks
+- content triage before writing slides
+- measurable learning outcomes
+- reality checks for timing and complexity
+- accessibility and delivery readiness
+
+The current implementation is static and GitHub-native, so it can be reused as a template without needing a backend service.
 
 ## 12-step design flow
 
