@@ -1,0 +1,28 @@
+name: Workshop content checks
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  check-required-files:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check required files exist
+        run: |
+          test -f workshop-design/01-scope.md
+          test -f workshop-design/02-audience.md
+          test -f workshop-design/03-learning-outcomes.md
+          test -f workshop-design/04-must-know-parking-lot.md
+          test -f workshop-design/05-runsheet.md
+          test -f workshop-design/06-exercises.md
+          test -f workshop-design/07-demo-plan.md
+          test -f workshop-design/08-accessibility-check.md
+          test -f workshop-design/09-facilitation-plan.md

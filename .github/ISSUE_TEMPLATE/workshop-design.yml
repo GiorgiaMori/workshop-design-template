@@ -1,0 +1,42 @@
+name: Workshop design plan
+description: Use this form to scope a workshop before developing content.
+title: "[Workshop design]: "
+labels: ["workshop-design", "scoping"]
+body:
+  - type: input
+    id: topic
+    attributes:
+      label: Workshop topic
+      description: What is the broad topic?
+      placeholder: "Long-read genome assembly"
+
+  - type: textarea
+    id: research-problem
+    attributes:
+      label: Real-world research problem
+      description: What problem will participants be able to solve?
+      placeholder: "I have Nanopore reads and want to produce and assess a draft genome assembly."
+
+  - type: textarea
+    id: audience
+    attributes:
+      label: Target audience
+      description: Who is this workshop for? What can they already do?
+
+  - type: textarea
+    id: outcomes
+    attributes:
+      label: Learning outcomes
+      description: Maximum 3 for a half-day, 4 for a full day. Start with “After this workshop, participants will be able to...”
+
+  - type: textarea
+    id: parking-lot
+    attributes:
+      label: Parking lot
+      description: What is interesting but not essential for live delivery?
+
+  - type: textarea
+    id: accessibility
+    attributes:
+      label: Accessibility considerations
+      description: What barriers might participants experience?
