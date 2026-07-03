@@ -1,12 +1,23 @@
 import { describe, expect, it } from 'vitest'
 import { samplePlan } from '../data/samplePlan'
-import { validatePlan } from './validation'
+import { parseObjectiveRefs, validatePlan } from './validation'
 
 describe('validatePlan', () => {
   it('passes the included sample with feasible verdict', () => {
     const result = validatePlan(samplePlan)
     expect(result.errors).toHaveLength(0)
     expect(result.verdict).toBe('Feasible')
+  })
+
+  describe('parseObjectiveRefs', () => {
+    it('returns empty list for empty or null values', () => {
+      expect(parseObjectiveRefs('')).toEqual([])
+      expect(parseObjectiveRefs(null)).toEqual([])
+    })
+
+    it('trims and filters malformed comma-separated lists', () => {
+      expect(parseObjectiveRefs(' OBJ-1, , OBJ-2 ,,  ')).toEqual(['OBJ-1', 'OBJ-2'])
+    })
   })
 
   it('fails when objective mapping to activity and assessment is missing', () => {

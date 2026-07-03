@@ -55,7 +55,14 @@ const emptyPlan = {
   adaptationPaths: '',
 }
 
-const nextId = (prefix, items) => `${prefix}-${items.length + 1}`
+const nextId = (prefix, items) => {
+  const maxSuffix = items.reduce((max, item) => {
+    const [, suffix = '0'] = (item.id || '').split('-')
+    const value = Number.parseInt(suffix, 10)
+    return Number.isNaN(value) ? max : Math.max(max, value)
+  }, 0)
+  return `${prefix}-${maxSuffix + 1}`
+}
 
 function App() {
   const [plan, setPlan] = useState(() => {
