@@ -164,7 +164,12 @@ export function validatePlan(plan) {
     }
   })
 
-  const verdict = errors.length ? 'Not Feasible' : warnings.length ? 'At Risk' : 'Feasible'
+  let verdict = 'Feasible'
+  if (errors.length) {
+    verdict = 'Not Feasible'
+  } else if (warnings.length) {
+    verdict = 'At Risk'
+  }
 
   return {
     errors,
