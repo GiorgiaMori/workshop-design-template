@@ -6,7 +6,7 @@ export function toMarkdown(plan, validation) {
   const objectives = plan.objectives
     .map(
       (objective) =>
-        `- **${objective.id}** ${objective.statement}\\n  - Measurable verb: ${objective.measurableVerb}\\n  - Criterion: ${objective.criterion}`,
+        `- **${objective.id}** ${objective.statement}\n  - Measurable verb: ${objective.measurableVerb}\n  - Criterion: ${objective.criterion}`,
     )
     .join('\n')
 
@@ -35,7 +35,7 @@ export function toMarkdown(plan, validation) {
   const activities = plan.activities
     .map(
       (activity) =>
-        `- **${activity.title}** (Objectives: ${activity.objectiveRefs || 'None'})\\n  - Prompt: ${activity.prompt}\\n  - Input/materials: ${activity.inputMaterials}\\n  - Expected output: ${activity.expectedOutput}\\n  - Interpretation guidance: ${activity.interpretationGuidance}\\n  - Extension option: ${activity.extensionOption}`,
+        `- **${activity.title}** (Objectives: ${activity.objectiveRefs || 'None'})\n  - Prompt: ${activity.prompt}\n  - Input/materials: ${activity.inputMaterials}\n  - Expected output: ${activity.expectedOutput}\n  - Interpretation guidance: ${activity.interpretationGuidance}\n  - Extension option: ${activity.extensionOption}`,
     )
     .join('\n')
 

@@ -31,7 +31,7 @@ cd workshop-planner
 npm run build
 ```
 
-See `/home/runner/work/workshop-design-template/workshop-design-template/workshop-planner/README.md` for architecture and deployment details.
+See `workshop-planner/README.md` for architecture and deployment details.
 
 ## Existing template resources
 
