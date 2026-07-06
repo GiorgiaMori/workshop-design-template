@@ -1,41 +1,29 @@
-# Bioinformatics Workshop Designer (GitHub Pages App)
+# Bioinformatics Training Feedback Coach (GitHub Pages App)
 
-A static single-page wizard for designing high-quality, inclusive bioinformatics workshop training plans.
+Interactive web app for expert bioinformaticians who need **feedback-only coaching** while designing short, online, coding-heavy life sciences training.
 
-## What it enforces
+## What this app does
 
-- Constructive alignment: every measurable objective must map to activity + assessment evidence.
-- UDL minimums before export:
-  - >=1 engagement choice
-  - >=2 representations
-  - >=2 expression options
-- Scope and feasibility checks:
-  - 60–70% of time in must-know + guided practice
-  - max 7 new core concepts per 60 minutes
-  - worked example before independent practice
-- Hands-on activity template completeness.
-- Jargon definition on first use.
+- Embeds and exports the strict feedback-coach prompt.
+- Collects draft outcomes/objectives/exercises.
+- Guides workflow triage:
+  - Core live / Demo-only / Optional / Post-course
+  - justification checks for every Core live step
+  - explicit cut-point prompts
+- Enforces UDL + inclusion checks per module/exercise:
+  - engagement routes
+  - multiple representations
+  - run/explain/interpret expression modes
+  - accessibility + low-bandwidth fallback
+- Generates structured feedback with mandatory sections:
+  - A) What's working
+  - B) Top risks (prioritized)
+  - C) Questions next (max 5)
+  - D) Suggested revisions as instructions
+  - E) 6-hour feasibility verdict
+- Enforces anti-outsourcing behavior when users request full deliverables.
 
-## Features
-
-- 9-step wizard
-- Actionable validation errors + warnings
-- Feasibility verdict: Feasible / At Risk / Not Feasible
-- Scope surgery suggestions: Keep now / Defer / Remove
-- Local draft persistence with `localStorage`
-- Live final-plan preview
-- Export to `plan.md` and `plan.json`
-- Prefilled sample 2-hour bioinformatics workshop
-
-## Project structure
-
-- `src/App.jsx` — wizard UI and state
-- `src/lib/validation.js` — validation engine
-- `src/lib/exporters.js` — markdown/json export
-- `src/data/samplePlan.js` — sample prefilled workshop
-- `src/lib/validation.test.js` — unit tests for validation rules
-
-## Setup
+## Run locally
 
 ```bash
 cd workshop-planner
@@ -43,28 +31,20 @@ npm install
 npm run dev
 ```
 
-## Tests
+## Validate
 
 ```bash
+npm run lint
 npm test
-```
-
-## Build
-
-```bash
 npm run build
 ```
 
-## GitHub Pages deploy
+## Files of interest
 
-This app is static and uses relative asset paths (`base: './'` in `vite.config.js`), so the build output can be hosted on GitHub Pages.
+- `src/App.jsx` — feedback coach UI
+- `src/lib/coach.js` — deterministic coaching rules and prompt text
+- `src/lib/coach.test.js` — unit tests for structure and boundary enforcement
 
-1. Build with `npm run build`
-2. Publish the `workshop-planner/dist/` directory using your preferred Pages workflow (artifact deploy or branch publish).
+## GitHub Pages
 
-## Accessibility and responsive UI
-
-- Semantic structure (`header`, `nav`, `main`, `section`, `fieldset`)
-- Keyboard-navigable controls
-- Visible focus states
-- Desktop/tablet responsive step layout
+This project is static and uses `base: './'` in `vite.config.js`, so the generated `dist/` artifact is GitHub Pages compatible.

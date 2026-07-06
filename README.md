@@ -3,11 +3,11 @@
 This repository now includes:
 
 - the original markdown-based planning workflow (`workshop-design/`, `docs/`, `examples/`)
-- a static GitHub Pages wizard app (`workshop-planner/`) for interactive workshop design
+- a static GitHub Pages app (`workshop-planner/`) for interactive feedback coaching on outcomes/objectives/exercises design
 
 ## Interactive web app
 
-The `workshop-planner/` app is a React + Vite single-page wizard for bioinformatics workshop design.
+The `workshop-planner/` app is a React + Vite single-page feedback coach for bioinformatics training design decisions.
 
 ### Run locally
 
@@ -17,10 +17,11 @@ npm install
 npm run dev
 ```
 
-### Test validation logic
+### Run checks
 
 ```bash
 cd workshop-planner
+npm run lint
 npm test
 ```
 
@@ -31,7 +32,7 @@ cd workshop-planner
 npm run build
 ```
 
-See `workshop-planner/README.md` for architecture and deployment details.
+See `workshop-planner/README.md` for interaction model and deployment details.
 
 ## Existing template resources
 

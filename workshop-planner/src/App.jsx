@@ -1,699 +1,376 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import './App.css'
-import { samplePlan } from './data/samplePlan'
-import { toJsonBlob, toMarkdown, downloadBlob } from './lib/exporters'
-import { validatePlan } from './lib/validation'
+import {
+  EMPTY_DRAFT,
+  OPENING_LINE,
+  buildExportText,
+  buildPromptExportText,
+  createModule,
+  createWorkflowStep,
+  generateCoachFeedback,
+  getCoachPrompt,
+} from './lib/coach'
 
-const STORAGE_KEY = 'workshop-designer-plan-v1'
-
-const steps = [
-  'Goal & Audience',
-  'Learning Objectives',
-  'Scope Triage',
-  'Timeboxed Session Plan',
-  'UDL Implementation',
-  'Hands-on Activities',
-  'Assessment + Evidence',
-  'Reproducibility/Ethics/Privacy/FAIR',
-  'Review & Export',
+const REQUEST_OPTIONS = [
+  'Feedback on my draft',
+  'I want you to draft outcomes/objectives/exercises for me',
 ]
 
-const emptyPlan = {
-  goal: '',
-  audience: '',
-  variability: '',
-  durationMinutes: 120,
-  coreConceptCount: 8,
-  objectives: [{ id: 'OBJ-1', statement: '', measurableVerb: '', criterion: '' }],
-  scopeItems: [{ id: 'SC-1', topic: '', bucket: 'Must', decision: 'In', reason: '' }],
-  sessionPlan: [
-    { id: 'TS-1', title: '', minutes: 15, category: 'must-know', phase: 'worked-example', objectiveRefs: 'OBJ-1' },
-  ],
-  udl: {
-    engagementChoices: [''],
-    representations: ['', ''],
-    expressionOptions: ['', ''],
-  },
-  activities: [
-    {
-      id: 'ACT-1',
-      title: '',
-      objectiveRefs: 'OBJ-1',
-      prompt: '',
-      inputMaterials: '',
-      expectedOutput: '',
-      interpretationGuidance: '',
-      extensionOption: '',
-    },
-  ],
-  assessments: [{ id: 'AS-1', title: '', objectiveRefs: 'OBJ-1', evidence: '' }],
-  jargon: [{ id: 'J-1', term: '', definition: '' }],
-  reproducibility: '',
-  ethicsPrivacyFair: '',
-  materialsSetupAccessibility: '',
-  pitfallsSupports: '',
-  adaptationPaths: '',
-}
-
-const nextId = (prefix, items) => {
-  const maxSuffix = items.reduce((max, item) => {
-    const [, suffix = '0'] = (item.id || '').split('-')
-    const value = Number.parseInt(suffix, 10)
-    return Number.isNaN(value) ? max : Math.max(max, value)
-  }, 0)
-  return `${prefix}-${maxSuffix + 1}`
+function downloadTextFile(filename, content) {
+  const blob = new Blob([content], { type: 'text/plain;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const anchor = document.createElement('a')
+  anchor.href = url
+  anchor.download = filename
+  anchor.click()
+  setTimeout(() => URL.revokeObjectURL(url), 200)
 }
 
 function App() {
-  const [plan, setPlan] = useState(() => {
-    const stored = localStorage.getItem(STORAGE_KEY)
-    if (!stored) return emptyPlan
-    try {
-      return JSON.parse(stored)
-    } catch {
-      return emptyPlan
-    }
-  })
-  const [currentStep, setCurrentStep] = useState(0)
-  const validation = useMemo(() => validatePlan(plan), [plan])
-  const markdown = useMemo(() => toMarkdown(plan, validation), [plan, validation])
+  const [draft, setDraft] = useState(EMPTY_DRAFT)
+  const [copyState, setCopyState] = useState('')
+  const feedback = useMemo(() => generateCoachFeedback(draft), [draft])
+  const coachPrompt = useMemo(() => getCoachPrompt(), [])
 
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(plan))
-  }, [plan])
+  const updateWorkflowStep = (id, field, value) => {
+    setDraft((prev) => ({
+      ...prev,
+      workflowSteps: prev.workflowSteps.map((step) => (step.id === id ? { ...step, [field]: value } : step)),
+    }))
+  }
 
-  const updateList = (key, updateFn) => setPlan((prev) => ({ ...prev, [key]: updateFn(prev[key]) }))
-  const updateUdl = (key, value) => setPlan((prev) => ({ ...prev, udl: { ...prev.udl, [key]: value } }))
+  const updateModule = (id, field, value) => {
+    setDraft((prev) => ({
+      ...prev,
+      modules: prev.modules.map((module) => (module.id === id ? { ...module, [field]: value } : module)),
+    }))
+  }
 
-  const addObjective = () =>
-    updateList('objectives', (items) => [...items, { id: nextId('OBJ', items), statement: '', measurableVerb: '', criterion: '' }])
-  const addScopeItem = () =>
-    updateList('scopeItems', (items) => [...items, { id: nextId('SC', items), topic: '', bucket: 'Should', decision: 'In', reason: '' }])
-  const addSessionEntry = () =>
-    updateList('sessionPlan', (items) => [
-      ...items,
-      { id: nextId('TS', items), title: '', minutes: 15, category: 'other', phase: 'guided-practice', objectiveRefs: '' },
-    ])
-  const addActivity = () =>
-    updateList('activities', (items) => [
-      ...items,
-      {
-        id: nextId('ACT', items),
-        title: '',
-        objectiveRefs: '',
-        prompt: '',
-        inputMaterials: '',
-        expectedOutput: '',
-        interpretationGuidance: '',
-        extensionOption: '',
-      },
-    ])
-  const addAssessment = () =>
-    updateList('assessments', (items) => [...items, { id: nextId('AS', items), title: '', objectiveRefs: '', evidence: '' }])
-  const addJargon = () => updateList('jargon', (items) => [...items, { id: nextId('J', items), term: '', definition: '' }])
-
-  const removeItem = (key, id) => updateList(key, (items) => (items.length > 1 ? items.filter((item) => item.id !== id) : items))
-
-  const exportPlan = () => {
-    downloadBlob(new Blob([markdown], { type: 'text/markdown' }), 'plan.md')
-    downloadBlob(toJsonBlob(plan), 'plan.json')
+  const copyPrompt = () => {
+    navigator.clipboard
+      .writeText(coachPrompt)
+      .then(() => setCopyState('Prompt copied to clipboard.'))
+      .catch((error) => {
+        setCopyState(`Copy failed: ${error.message}`)
+      })
   }
 
   return (
     <div className="app-shell">
       <header>
-        <h1>Bioinformatics Workshop Designer</h1>
-        <p>Build high-quality, inclusive 1–4 hour training plans with enforceable alignment, UDL, and feasibility checks.</p>
+        <h1>Bioinformatics Training Feedback Coach</h1>
+        <p>{OPENING_LINE}</p>
       </header>
 
-      <nav aria-label="Wizard steps" className="stepper">
-        {steps.map((step, index) => (
-          <button key={step} className={index === currentStep ? 'active' : ''} onClick={() => setCurrentStep(index)}>
-            {index + 1}. {step}
-          </button>
-        ))}
-      </nav>
-
       <main>
-        {currentStep === 0 && (
-          <section>
-            <h2>Goal & Audience</h2>
-            <label>Training Goal<textarea value={plan.goal} onChange={(event) => setPlan((prev) => ({ ...prev, goal: event.target.value }))} /></label>
-            <label>Learners<textarea value={plan.audience} onChange={(event) => setPlan((prev) => ({ ...prev, audience: event.target.value }))} /></label>
-            <label>Learner Variability (UDL)<textarea value={plan.variability} onChange={(event) => setPlan((prev) => ({ ...prev, variability: event.target.value }))} /></label>
-            <div className="row">
+        <section>
+          <h2>1) Use this coach prompt in your AI setup</h2>
+          <p>This prompt enforces feedback-only coaching and blocks design outsourcing.</p>
+          <div className="row">
+            <button type="button" onClick={copyPrompt}>
+              Copy prompt
+            </button>
+            <button type="button" onClick={() => downloadTextFile('bioinformatics-feedback-coach-prompt.md', buildPromptExportText())}>
+              Download prompt
+            </button>
+          </div>
+          {copyState ? <p className="notice">{copyState}</p> : null}
+          <details>
+            <summary>View prompt</summary>
+            <pre>{coachPrompt}</pre>
+          </details>
+        </section>
+
+        <section>
+          <h2>2) Draft intake</h2>
+          <label>
+            Request type
+            <select
+              value={draft.requestType}
+              onChange={(event) => setDraft((prev) => ({ ...prev, requestType: event.target.value }))}
+            >
+              {REQUEST_OPTIONS.map((option) => (
+                <option key={option} value={option}>
+                  {option}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Training topic and learner context
+            <textarea
+              value={draft.context}
+              onChange={(event) => setDraft((prev) => ({ ...prev, context: event.target.value }))}
+              placeholder="Topic, learner background, technical assumptions."
+            />
+          </label>
+          <div className="row">
+            <label>
+              Duration (hours)
+              <input
+                type="number"
+                min="1"
+                max="20"
+                value={draft.durationHours}
+                onChange={(event) => setDraft((prev) => ({ ...prev, durationHours: Number(event.target.value) || 0 }))}
+              />
+            </label>
+            <label>
+              Delivery format
+              <input
+                value={draft.deliveryFormat}
+                onChange={(event) => setDraft((prev) => ({ ...prev, deliveryFormat: event.target.value }))}
+                placeholder="e.g. 2 half-days online with live coding"
+              />
+            </label>
+          </div>
+          <label>
+            Draft learning outcomes notes
+            <textarea
+              value={draft.outcomesDraft}
+              onChange={(event) => setDraft((prev) => ({ ...prev, outcomesDraft: event.target.value }))}
+            />
+          </label>
+          <label>
+            Draft learning objectives notes
+            <textarea
+              value={draft.objectivesDraft}
+              onChange={(event) => setDraft((prev) => ({ ...prev, objectivesDraft: event.target.value }))}
+            />
+          </label>
+          <label>
+            Draft exercises notes
+            <textarea
+              value={draft.exercisesDraft}
+              onChange={(event) => setDraft((prev) => ({ ...prev, exercisesDraft: event.target.value }))}
+            />
+          </label>
+          <label className="checkbox">
+            <input
+              type="checkbox"
+              checked={draft.scriptsTestedOnSampleData}
+              onChange={(event) => setDraft((prev) => ({ ...prev, scriptsTestedOnSampleData: event.target.checked }))}
+            />
+            Scripts/workflow have been tested on sample data
+          </label>
+        </section>
+
+        <section>
+          <h2>3) Workflow triage (required when scripts are tested)</h2>
+          {draft.workflowSteps.map((step, index) => (
+            <article key={step.id} className="card">
+              <h3>
+                Step {index + 1} ({step.id})
+              </h3>
               <label>
-                Workshop duration (minutes)
-                <input
-                  type="number"
-                  min="60"
-                  max="240"
-                  value={plan.durationMinutes}
-                  onChange={(event) => setPlan((prev) => ({ ...prev, durationMinutes: Number(event.target.value) || 0 }))}
-                />
+                Workflow step name
+                <input value={step.name} onChange={(event) => updateWorkflowStep(step.id, 'name', event.target.value)} />
               </label>
               <label>
-                New core concepts
-                <input
-                  type="number"
-                  min="1"
-                  max="30"
-                  value={plan.coreConceptCount}
-                  onChange={(event) => setPlan((prev) => ({ ...prev, coreConceptCount: Number(event.target.value) || 0 }))}
-                />
+                Proposed classification
+                <select
+                  value={step.classification}
+                  onChange={(event) => updateWorkflowStep(step.id, 'classification', event.target.value)}
+                >
+                  <option>Core live</option>
+                  <option>Demo-only</option>
+                  <option>Optional</option>
+                  <option>Post-course</option>
+                </select>
               </label>
-            </div>
-          </section>
-        )}
-
-        {currentStep === 1 && (
-          <section>
-            <h2>Learning Objectives</h2>
-            {plan.objectives.map((objective, index) => (
-              <article key={objective.id} className="card">
-                <h3>{objective.id}</h3>
+              <div className="grid-two">
                 <label>
-                  Objective statement
-                  <input
-                    value={objective.statement}
-                    onChange={(event) =>
-                      updateList('objectives', (items) =>
-                        items.map((item) => (item.id === objective.id ? { ...item, statement: event.target.value } : item)),
-                      )
-                    }
-                  />
-                </label>
-                <div className="row">
-                  <label>
-                    Measurable verb
-                    <input
-                      value={objective.measurableVerb}
-                      onChange={(event) =>
-                        updateList('objectives', (items) =>
-                          items.map((item) => (item.id === objective.id ? { ...item, measurableVerb: event.target.value } : item)),
-                        )
-                      }
-                    />
-                  </label>
-                  <label>
-                    Criterion / evidence
-                    <input
-                      value={objective.criterion}
-                      onChange={(event) =>
-                        updateList('objectives', (items) =>
-                          items.map((item) => (item.id === objective.id ? { ...item, criterion: event.target.value } : item)),
-                        )
-                      }
-                    />
-                  </label>
-                </div>
-                {index > 0 && (
-                  <button type="button" onClick={() => removeItem('objectives', objective.id)}>
-                    Remove objective
-                  </button>
-                )}
-              </article>
-            ))}
-            <button type="button" onClick={addObjective}>
-              Add objective
-            </button>
-          </section>
-        )}
-
-        {currentStep === 2 && (
-          <section>
-            <h2>Scope Triage</h2>
-            {plan.scopeItems.map((item, index) => (
-              <article key={item.id} className="card">
-                <h3>{item.id}</h3>
-                <label>
-                  Topic
-                  <input
-                    value={item.topic}
-                    onChange={(event) =>
-                      updateList('scopeItems', (items) =>
-                        items.map((entry) => (entry.id === item.id ? { ...entry, topic: event.target.value } : entry)),
-                      )
-                    }
-                  />
-                </label>
-                <div className="row">
-                  <label>
-                    Bucket
-                    <select
-                      value={item.bucket}
-                      onChange={(event) =>
-                        updateList('scopeItems', (items) =>
-                          items.map((entry) => (entry.id === item.id ? { ...entry, bucket: event.target.value } : entry)),
-                        )
-                      }
-                    >
-                      <option>Must</option>
-                      <option>Should</option>
-                      <option>Nice</option>
-                      <option>Instructor Background</option>
-                    </select>
-                  </label>
-                  <label>
-                    Decision
-                    <select
-                      value={item.decision}
-                      onChange={(event) =>
-                        updateList('scopeItems', (items) =>
-                          items.map((entry) => (entry.id === item.id ? { ...entry, decision: event.target.value } : entry)),
-                        )
-                      }
-                    >
-                      <option>In</option>
-                      <option>Out</option>
-                    </select>
-                  </label>
-                </div>
-                <label>
-                  Reason
-                  <input
-                    value={item.reason}
-                    onChange={(event) =>
-                      updateList('scopeItems', (items) =>
-                        items.map((entry) => (entry.id === item.id ? { ...entry, reason: event.target.value } : entry)),
-                      )
-                    }
-                  />
-                </label>
-                {index > 0 && (
-                  <button type="button" onClick={() => removeItem('scopeItems', item.id)}>
-                    Remove scope item
-                  </button>
-                )}
-              </article>
-            ))}
-            <button type="button" onClick={addScopeItem}>
-              Add scope item
-            </button>
-          </section>
-        )}
-
-        {currentStep === 3 && (
-          <section>
-            <h2>Timeboxed Session Plan</h2>
-            {plan.sessionPlan.map((entry, index) => (
-              <article key={entry.id} className="card">
-                <h3>{entry.id}</h3>
-                <label>
-                  Segment title
-                  <input
-                    value={entry.title}
-                    onChange={(event) =>
-                      updateList('sessionPlan', (items) =>
-                        items.map((item) => (item.id === entry.id ? { ...item, title: event.target.value } : item)),
-                      )
-                    }
-                  />
-                </label>
-                <div className="row">
-                  <label>
-                    Minutes
-                    <input
-                      type="number"
-                      min="5"
-                      value={entry.minutes}
-                      onChange={(event) =>
-                        updateList('sessionPlan', (items) =>
-                          items.map((item) =>
-                            item.id === entry.id ? { ...item, minutes: Number(event.target.value) || 0 } : item,
-                          ),
-                        )
-                      }
-                    />
-                  </label>
-                  <label>
-                    Category
-                    <select
-                      value={entry.category}
-                      onChange={(event) =>
-                        updateList('sessionPlan', (items) =>
-                          items.map((item) => (item.id === entry.id ? { ...item, category: event.target.value } : item)),
-                        )
-                      }
-                    >
-                      <option value="must-know">Must-know</option>
-                      <option value="guided-practice">Guided practice</option>
-                      <option value="other">Other</option>
-                    </select>
-                  </label>
-                  <label>
-                    Phase
-                    <select
-                      value={entry.phase}
-                      onChange={(event) =>
-                        updateList('sessionPlan', (items) =>
-                          items.map((item) => (item.id === entry.id ? { ...item, phase: event.target.value } : item)),
-                        )
-                      }
-                    >
-                      <option value="intro">Intro</option>
-                      <option value="worked-example">Worked example</option>
-                      <option value="guided-practice">Guided practice</option>
-                      <option value="independent-practice">Independent practice</option>
-                      <option value="assessment">Assessment</option>
-                      <option value="wrap">Wrap</option>
-                    </select>
-                  </label>
-                </div>
-                <label>
-                  Objective IDs (comma separated)
-                  <input
-                    value={entry.objectiveRefs}
-                    onChange={(event) =>
-                      updateList('sessionPlan', (items) =>
-                        items.map((item) => (item.id === entry.id ? { ...item, objectiveRefs: event.target.value } : item)),
-                      )
-                    }
-                  />
-                </label>
-                {index > 0 && (
-                  <button type="button" onClick={() => removeItem('sessionPlan', entry.id)}>
-                    Remove segment
-                  </button>
-                )}
-              </article>
-            ))}
-            <button type="button" onClick={addSessionEntry}>
-              Add session segment
-            </button>
-          </section>
-        )}
-
-        {currentStep === 4 && (
-          <section>
-            <h2>UDL Implementation Table</h2>
-            <fieldset>
-              <legend>Engagement choices (minimum 1)</legend>
-              {plan.udl.engagementChoices.map((value, index) => (
-                <input
-                  key={`engagement-${index}`}
-                  value={value}
-                  onChange={(event) =>
-                    updateUdl(
-                      'engagementChoices',
-                      plan.udl.engagementChoices.map((entry, itemIndex) => (itemIndex === index ? event.target.value : entry)),
-                    )
-                  }
-                />
-              ))}
-              <button type="button" onClick={() => updateUdl('engagementChoices', [...plan.udl.engagementChoices, ''])}>
-                Add engagement choice
-              </button>
-            </fieldset>
-
-            <fieldset>
-              <legend>Representations (minimum 2)</legend>
-              {plan.udl.representations.map((value, index) => (
-                <input
-                  key={`representation-${index}`}
-                  value={value}
-                  onChange={(event) =>
-                    updateUdl(
-                      'representations',
-                      plan.udl.representations.map((entry, itemIndex) => (itemIndex === index ? event.target.value : entry)),
-                    )
-                  }
-                />
-              ))}
-              <button type="button" onClick={() => updateUdl('representations', [...plan.udl.representations, ''])}>
-                Add representation
-              </button>
-            </fieldset>
-
-            <fieldset>
-              <legend>Action/Expression options (minimum 2)</legend>
-              {plan.udl.expressionOptions.map((value, index) => (
-                <input
-                  key={`expression-${index}`}
-                  value={value}
-                  onChange={(event) =>
-                    updateUdl(
-                      'expressionOptions',
-                      plan.udl.expressionOptions.map((entry, itemIndex) => (itemIndex === index ? event.target.value : entry)),
-                    )
-                  }
-                />
-              ))}
-              <button type="button" onClick={() => updateUdl('expressionOptions', [...plan.udl.expressionOptions, ''])}>
-                Add expression option
-              </button>
-            </fieldset>
-          </section>
-        )}
-
-        {currentStep === 5 && (
-          <section>
-            <h2>Hands-on Activities</h2>
-            {plan.activities.map((activity, index) => (
-              <article key={activity.id} className="card">
-                <h3>{activity.id}</h3>
-                <label>
-                  Activity title
-                  <input
-                    value={activity.title}
-                    onChange={(event) =>
-                      updateList('activities', (items) =>
-                        items.map((item) => (item.id === activity.id ? { ...item, title: event.target.value } : item)),
-                      )
-                    }
-                  />
-                </label>
-                <label>
-                  Objective IDs (comma separated)
-                  <input
-                    value={activity.objectiveRefs}
-                    onChange={(event) =>
-                      updateList('activities', (items) =>
-                        items.map((item) => (item.id === activity.id ? { ...item, objectiveRefs: event.target.value } : item)),
-                      )
-                    }
-                  />
-                </label>
-                {[
-                  ['prompt', 'Prompt'],
-                  ['inputMaterials', 'Input/materials'],
-                  ['expectedOutput', 'Expected output'],
-                  ['interpretationGuidance', 'Interpretation guidance'],
-                  ['extensionOption', 'Extension option'],
-                ].map(([field, label]) => (
-                  <label key={field}>
-                    {label}
-                    <textarea
-                      value={activity[field]}
-                      onChange={(event) =>
-                        updateList('activities', (items) =>
-                          items.map((item) => (item.id === activity.id ? { ...item, [field]: event.target.value } : item)),
-                        )
-                      }
-                    />
-                  </label>
-                ))}
-                {index > 0 && (
-                  <button type="button" onClick={() => removeItem('activities', activity.id)}>
-                    Remove activity
-                  </button>
-                )}
-              </article>
-            ))}
-            <button type="button" onClick={addActivity}>
-              Add activity
-            </button>
-          </section>
-        )}
-
-        {currentStep === 6 && (
-          <section>
-            <h2>Assessment + Evidence Map</h2>
-            {plan.assessments.map((assessment, index) => (
-              <article key={assessment.id} className="card">
-                <h3>{assessment.id}</h3>
-                <label>
-                  Assessment title
-                  <input
-                    value={assessment.title}
-                    onChange={(event) =>
-                      updateList('assessments', (items) =>
-                        items.map((item) => (item.id === assessment.id ? { ...item, title: event.target.value } : item)),
-                      )
-                    }
-                  />
-                </label>
-                <label>
-                  Objective IDs (comma separated)
-                  <input
-                    value={assessment.objectiveRefs}
-                    onChange={(event) =>
-                      updateList('assessments', (items) =>
-                        items.map((item) => (item.id === assessment.id ? { ...item, objectiveRefs: event.target.value } : item)),
-                      )
-                    }
-                  />
-                </label>
-                <label>
-                  Evidence
+                  Learning value justification
                   <textarea
-                    value={assessment.evidence}
-                    onChange={(event) =>
-                      updateList('assessments', (items) =>
-                        items.map((item) => (item.id === assessment.id ? { ...item, evidence: event.target.value } : item)),
-                      )
-                    }
-                  />
-                </label>
-                {index > 0 && (
-                  <button type="button" onClick={() => removeItem('assessments', assessment.id)}>
-                    Remove assessment
-                  </button>
-                )}
-              </article>
-            ))}
-            <button type="button" onClick={addAssessment}>
-              Add assessment
-            </button>
-          </section>
-        )}
-
-        {currentStep === 7 && (
-          <section>
-            <h2>Reproducibility / Ethics / Privacy / FAIR</h2>
-            <label>
-              Reproducibility notes
-              <textarea
-                value={plan.reproducibility}
-                onChange={(event) => setPlan((prev) => ({ ...prev, reproducibility: event.target.value }))}
-              />
-            </label>
-            <label>
-              Ethics / Privacy / FAIR
-              <textarea
-                value={plan.ethicsPrivacyFair}
-                onChange={(event) => setPlan((prev) => ({ ...prev, ethicsPrivacyFair: event.target.value }))}
-              />
-            </label>
-            <label>
-              Materials / Setup / Accessibility
-              <textarea
-                value={plan.materialsSetupAccessibility}
-                onChange={(event) => setPlan((prev) => ({ ...prev, materialsSetupAccessibility: event.target.value }))}
-              />
-            </label>
-            <label>
-              Pitfalls and supports
-              <textarea
-                value={plan.pitfallsSupports}
-                onChange={(event) => setPlan((prev) => ({ ...prev, pitfallsSupports: event.target.value }))}
-              />
-            </label>
-            <label>
-              Adaptation paths
-              <textarea
-                value={plan.adaptationPaths}
-                onChange={(event) => setPlan((prev) => ({ ...prev, adaptationPaths: event.target.value }))}
-              />
-            </label>
-
-            <h3>Jargon first-use definitions</h3>
-            {plan.jargon.map((item, index) => (
-              <div key={item.id} className="card">
-                <label>
-                  Term
-                  <input
-                    value={item.term}
-                    onChange={(event) =>
-                      updateList('jargon', (items) =>
-                        items.map((entry) => (entry.id === item.id ? { ...entry, term: event.target.value } : entry)),
-                      )
-                    }
+                    value={step.learningValue}
+                    onChange={(event) => updateWorkflowStep(step.id, 'learningValue', event.target.value)}
                   />
                 </label>
                 <label>
-                  Definition
-                  <input
-                    value={item.definition}
-                    onChange={(event) =>
-                      updateList('jargon', (items) =>
-                        items.map((entry) => (entry.id === item.id ? { ...entry, definition: event.target.value } : entry)),
-                      )
-                    }
+                  Dependency criticality
+                  <textarea
+                    value={step.dependencyCriticality}
+                    onChange={(event) => updateWorkflowStep(step.id, 'dependencyCriticality', event.target.value)}
                   />
                 </label>
-                {index > 0 && (
-                  <button type="button" onClick={() => removeItem('jargon', item.id)}>
-                    Remove term
-                  </button>
-                )}
+                <label>
+                  Runtime feasibility
+                  <textarea
+                    value={step.runtimeFeasibility}
+                    onChange={(event) => updateWorkflowStep(step.id, 'runtimeFeasibility', event.target.value)}
+                  />
+                </label>
+                <label>
+                  Failure resilience
+                  <textarea
+                    value={step.failureResilience}
+                    onChange={(event) => updateWorkflowStep(step.id, 'failureResilience', event.target.value)}
+                  />
+                </label>
               </div>
-            ))}
-            <button type="button" onClick={addJargon}>
-              Add jargon term
-            </button>
-          </section>
-        )}
+              <label>
+                Explicit cut point if behind schedule
+                <input value={step.cutPoint} onChange={(event) => updateWorkflowStep(step.id, 'cutPoint', event.target.value)} />
+              </label>
+              {draft.workflowSteps.length > 1 ? (
+                <button
+                  type="button"
+                  onClick={() =>
+                    setDraft((prev) => ({ ...prev, workflowSteps: prev.workflowSteps.filter((entry) => entry.id !== step.id) }))
+                  }
+                >
+                  Remove step
+                </button>
+              ) : null}
+            </article>
+          ))}
+          <button
+            type="button"
+            onClick={() => setDraft((prev) => ({ ...prev, workflowSteps: [...prev.workflowSteps, createWorkflowStep(prev.workflowSteps)] }))}
+          >
+            Add workflow step
+          </button>
+        </section>
 
-        {currentStep === 8 && (
-          <section>
-            <h2>Review & Export</h2>
+        <section>
+          <h2>4) UDL and inclusion guardrails</h2>
+          {draft.modules.map((module, index) => (
+            <article key={module.id} className="card">
+              <h3>
+                Module {index + 1} ({module.id})
+              </h3>
+              <label>
+                Module or exercise name
+                <input value={module.name} onChange={(event) => updateModule(module.id, 'name', event.target.value)} />
+              </label>
+              <label>
+                Engagement routes (one per line)
+                <textarea
+                  value={module.engagementRoutes}
+                  onChange={(event) => updateModule(module.id, 'engagementRoutes', event.target.value)}
+                  placeholder="Choice, relevance, participation options"
+                />
+              </label>
+              <label>
+                Representations (one per line; include text/visual/code walkthrough where possible)
+                <textarea
+                  value={module.representations}
+                  onChange={(event) => updateModule(module.id, 'representations', event.target.value)}
+                />
+              </label>
+              <div className="row checkbox-row">
+                <label className="checkbox">
+                  <input
+                    type="checkbox"
+                    checked={module.expressionRun}
+                    onChange={(event) => updateModule(module.id, 'expressionRun', event.target.checked)}
+                  />
+                  Learners run
+                </label>
+                <label className="checkbox">
+                  <input
+                    type="checkbox"
+                    checked={module.expressionExplain}
+                    onChange={(event) => updateModule(module.id, 'expressionExplain', event.target.checked)}
+                  />
+                  Learners explain
+                </label>
+                <label className="checkbox">
+                  <input
+                    type="checkbox"
+                    checked={module.expressionInterpret}
+                    onChange={(event) => updateModule(module.id, 'expressionInterpret', event.target.checked)}
+                  />
+                  Learners interpret
+                </label>
+              </div>
+              <label>
+                Accessibility and low-bandwidth fallback
+                <textarea
+                  value={module.accessibilityFallback}
+                  onChange={(event) => updateModule(module.id, 'accessibilityFallback', event.target.value)}
+                />
+              </label>
+              {draft.modules.length > 1 ? (
+                <button
+                  type="button"
+                  onClick={() => setDraft((prev) => ({ ...prev, modules: prev.modules.filter((entry) => entry.id !== module.id) }))}
+                >
+                  Remove module
+                </button>
+              ) : null}
+            </article>
+          ))}
+          <button type="button" onClick={() => setDraft((prev) => ({ ...prev, modules: [...prev.modules, createModule(prev.modules)] }))}>
+            Add module
+          </button>
+        </section>
+
+        <section>
+          <h2>5) Coach output (mandatory structure)</h2>
+          {feedback.refusal ? (
+            <article className="warning">
+              <p>
+                <strong>{feedback.refusal}</strong>
+              </p>
+              <p>{feedback.redirection}</p>
+              <h3>Compact critique checklist</h3>
+              <ul>
+                {feedback.compactChecklist.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
+            </article>
+          ) : null}
+
+          <article className="card output">
+            <h3>A) What&apos;s working</h3>
+            <ul>
+              {feedback.whatsWorking.map((item) => (
+                <li key={item}>{item}</li>
+              ))}
+            </ul>
+
+            <h3>B) Top risks (prioritized)</h3>
+            <ol>
+              {feedback.topRisks.map((item) => (
+                <li key={`${item.title}-${item.priority}`}>
+                  <strong>{item.title}</strong> ({item.priority}) — {item.reason}
+                </li>
+              ))}
+            </ol>
+
+            <h3>C) Questions the trainer must answer next (max 5)</h3>
+            <ol>
+              {feedback.questions.map((item) => (
+                <li key={item}>{item}</li>
+              ))}
+            </ol>
+
+            <h3>D) Suggested revisions as instructions (not rewritten content)</h3>
+            <ul>
+              {feedback.suggestedRevisions.map((item) => (
+                <li key={item}>{item}</li>
+              ))}
+            </ul>
+
+            <h3>E) 6-hour feasibility verdict</h3>
             <p>
-              <strong>Feasibility verdict:</strong> {validation.verdict}
+              <strong>
+                {feedback.feasibilityVerdict} — {feedback.feasibilityReason}
+              </strong>
             </p>
-            <div className="status-grid">
-              <article>
-                <h3>Actionable errors ({validation.errors.length})</h3>
-                <ul>
-                  {validation.errors.map((error) => (
-                    <li key={error}>{error}</li>
-                  ))}
-                </ul>
-              </article>
-              <article>
-                <h3>Warnings ({validation.warnings.length})</h3>
-                <ul>
-                  {validation.warnings.map((warning) => (
-                    <li key={warning}>{warning}</li>
-                  ))}
-                </ul>
-              </article>
-              <article>
-                <h3>Scope surgery suggestions</h3>
-                <ul>
-                  {validation.suggestions.map((suggestion) => (
-                    <li key={`${suggestion.topic}-${suggestion.action}`}>
-                      <strong>{suggestion.action}:</strong> {suggestion.topic} — {suggestion.reason}
-                    </li>
-                  ))}
-                </ul>
-              </article>
-            </div>
-            <div className="row">
-              <button type="button" onClick={() => setPlan(samplePlan)}>
-                Load sample 2-hour workshop
-              </button>
-              <button type="button" onClick={() => setPlan(emptyPlan)}>
-                Reset draft
-              </button>
-              <button type="button" onClick={exportPlan} disabled={validation.errors.length > 0}>
-                Export plan.md + plan.json
-              </button>
-            </div>
-            <h3>Live preview</h3>
-            <pre>{markdown}</pre>
-          </section>
-        )}
+          </article>
+          <div className="row">
+            <button type="button" onClick={() => downloadTextFile('feedback-coach-report.md', buildExportText(draft, feedback))}>
+              Download feedback report
+            </button>
+            <button type="button" onClick={() => setDraft(EMPTY_DRAFT)}>
+              Reset draft
+            </button>
+          </div>
+        </section>
       </main>
-
-      <footer className="row">
-        <button type="button" onClick={() => setCurrentStep((value) => Math.max(value - 1, 0))}>
-          Previous
-        </button>
-        <button type="button" onClick={() => setCurrentStep((value) => Math.min(value + 1, steps.length - 1))}>
-          Next
-        </button>
-      </footer>
     </div>
   )
 }
